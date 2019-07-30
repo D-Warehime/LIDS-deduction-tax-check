@@ -27,27 +27,30 @@ def getSubInfo(employee_id):
 	return int(result[0][0]), TaxRate
 
 companyID = 261931
-# Dfile_path = '261931Deductions20190711.csv' 
+# Dfile_path = 'O05622Deductions20190728.csv' 
+# Bfile_path = 'O05622Benefits20190728.csv'
 deduction_file_path = 'Dtest.csv'
 benefit_file_path = 'Btest.csv'
 
 benefit_file = {}
 with open(benefit_file_path) as bfile:
 	benefitFile = csv.reader(bfile, delimiter=',')
-	for row in benefitFile:
-		if row[0] != 'Employee_number':
-			benefit_sub_id, x = getSubInfo(int(row[0]))
+	for rowB in benefitFile:
+		if rowB[0] != 'Employee_number':
+			benefit_sub_id, x = getSubInfo(int(rowB[0]))
 			if benefit_sub_id not in benefit_file:
 				benefit_file[benefit_sub_id] = []
-			benefit_file[benefit_sub_id].append({row[1]: float(row[2])})
+			benefit_file[benefit_sub_id].append({rowB[1]: float(rowB[2])})
 
 ErrorRecords = []
 Non_QC_ON_Records = []
 QC_ON_TaxRateRecords = []
+Non_Medical_Dental_Records = []
 rowLine = 0
 
 with open(deduction_file_path) as csvfile:
 	readCSV = csv.reader(csvfile, delimiter=',')
+	#Using this currentSub dict to store the records for the sub currently being looked at from the file
 	currentSub = {"sub": 0, "plan_and_rates": {}}
 	for row in readCSV:
 		if rowLine > 0:
@@ -56,38 +59,31 @@ with open(deduction_file_path) as csvfile:
 				sub_id, TaxRate = getSubInfo(row[0])
 
 				if sub_id == 0:
-					ErrorRecords.append(row)
-					continue
+					ErrorRecords.append([rowLine,row[0],row[1],row[2],'Couldnt find sub id'])
 				if TaxRate == 0:
-					Non_QC_ON_Records.append(row)
-					continue
+					Non_QC_ON_Records.append([rowLine,row[0],row[1],row[2],'no tax rate for this sub'])
+					
 				if currentSub["sub"] != sub_id:
-					currentSub["sub"] = [sub_id]
+					currentSub["sub"] = sub_id
 					currentSub["plan_and_rates"] = {}
-
-				if row[1] not in currentSub["plan_and_rates"]:
-					currentSub["plan_and_rates"][row[1]] = row[2]
+				elif row[1] not in currentSub["plan_and_rates"]:
+					currentSub["plan_and_rates"][row[1]] = float(row[2])
 				else: 
-					ErrorRecords.append(row)
-					continue
-
+					ErrorRecords.append([rowLine,row[0],row[1],row[2],'company plan type already present for this subscriber'])
+					
 				if 'H Sales Tax' in currentSub["plan_and_rates"] and 'EE HEALTH' in currentSub["plan_and_rates"]:
 					amount = TaxRate * currentSub["plan_and_rates"]['EE HEALTH']
 					if amount == currentSub["plan_and_rates"]['H Sales Tax']:
 						QC_ON_TaxRateRecords.append(row)
-						continue
 					else:
-						ErrorRecords.append(row)
-						continue
+						ErrorRecords.append([rowLine,row[0],row[1],row[2],'Health ee sales tax incorrect'])
 
 				if 'D Sales Tax' in currentSub["plan_and_rates"] and 'EE DENTAL' in currentSub["plan_and_rates"]:
 					amount = TaxRate * currentSub["plan_and_rates"]['EE DENTAL']
 					if amount == currentSub["plan_and_rates"]['D Sales Tax']:
 						QC_ON_TaxRateRecords.append(row)
-						continue
 					else:
-						ErrorRecords.append(row)
-						continue
+						ErrorRecords.append([rowLine,row[0],row[1],row[2],'Dental ee sales tax incorrect'])
 
 				if 'H ER Sales Tax' in currentSub["plan_and_rates"]:
 					if sub_id in benefit_file:
@@ -96,7 +92,7 @@ with open(deduction_file_path) as csvfile:
 							if amount == row[3]:
 								QC_ON_TaxRateRecords.append(row)
 					else:
-						ErrorRecords.append(row)
+						ErrorRecords.append([rowLine,row[0],row[1],row[2],'amount on benefit file doesnt match amount from deduction file with tax rate'])
 
 				if 'D ER Sales Tax' in currentSub["plan_and_rates"]:
 					if sub_id in benefit_file:
@@ -105,15 +101,17 @@ with open(deduction_file_path) as csvfile:
 							if amount == row[3]:
 								QC_ON_TaxRateRecords.append(row)
 					else:
-						ErrorRecords.append(row)
+						ErrorRecords.append([rowLine,row[0],row[1],row[2],'amount on benefit file doesnt match amount from deduction file with tax rate'])
 		else: 
 			if rowLine != 0:
 				ErrorRecords.append(row)
 		rowLine += 1
+		print(rowLine)
 
-print("Error records", len(ErrorRecords), ErrorRecords)
-print("Sales Tax records", len(QC_ON_TaxRateRecords), QC_ON_TaxRateRecords)
-print("Not tax records", len(Non_QC_ON_Records), Non_QC_ON_Records)
+print("Error records", len(ErrorRecords))
+print("Sales Tax records", len(QC_ON_TaxRateRecords))
+print("Non tax records", len(Non_QC_ON_Records))
+print("Non Medical or Dental records", len(Non_Medical_Dental_Records))
 
 #Save results of this script into an excel sheet
 resultBook = xlwt.Workbook()
