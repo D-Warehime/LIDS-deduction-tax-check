@@ -50,7 +50,8 @@ rowLine = 0
 
 with open(deduction_file_path) as csvfile:
 	readCSV = csv.reader(csvfile, delimiter=',')
-	#Using this currentSub dict to store the records for the sub currently being looked at from the file
+	#Using this currentSub dict to store all the records for a subscriber while still reading line by line from the file
+	#This dict is cleared when a new sub id is read, the records stored in this dict are used to compare rates
 	currentSub = {"sub": 0, "plan_and_rates": {}}
 	for row in readCSV:
 		if rowLine > 0:
@@ -113,7 +114,7 @@ print("Sales Tax records", len(QC_ON_TaxRateRecords))
 print("Non tax records", len(Non_QC_ON_Records))
 print("Non Medical or Dental records", len(Non_Medical_Dental_Records))
 
-#Save results of this script into an excel sheet
+#Save results of this script to an excel sheet
 resultBook = xlwt.Workbook()
 sheet1 = resultBook.add_sheet('Error records')
 sheet2 = resultBook.add_sheet('QC & ON records')
